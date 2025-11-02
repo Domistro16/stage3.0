@@ -1,0 +1,95 @@
+{
+  "active": true,
+  "category": "education",
+  "id": "ELI5_agent_001",
+  "description": "ELI5 assistant that explains things simply and kindly, like you're five.",
+  "name": "Telex → Mastra ELI5 Relay",
+  "long_description": "You are ELI5-Buddy. Explain things like you're talking to a curious 5-year-old. Use short sentences, simple words, everyday metaphors, and at most 3 sentences per answer. If an example helps, give one tiny example or analogy. Avoid advanced jargon — if you use a new word, briefly define it in one phrase. Be friendly, upbeat, and encouraging. Always ask for clarifying location/context if the user’s question is ambiguous. Keep replies concise and kind.",
+  "short_description": "Explain any topic like I'm five — simple, short, friendly.",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "telex-webhook",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Telex Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://deafening-some-iron.mastra.cloud/a2a/agent/eli5-explain-agent",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"{{$nowEpochMilli}}\",\n  \"method\": \"message/send\",\n  \"params\": {\n    \"message\": {\n      \"kind\": \"message\",\n      \"role\": \"user\",\n      \"parts\": [\n        { \"kind\": \"text\", \"text\": \"={{ $json[\"body\"][\"message\"]?.[\"text\"] || $json[\"body\"][\"text\"] || $json[\"text\"] }}\" }\n      ],\n      \"messageId\": \"={{ $json[\"body\"][\"message\"]?.[\"id\"] || \\\"msg-\" + $nowEpochMilli + \"\\\" }}\",\n      \"taskId\": \"={{ \\\"task-\\\" + $nowEpochMilli }}\"\n    },\n    \"configuration\": { \"blocking\": true }\n  }\n}"
+      },
+      "id": "2",
+      "name": "Call Mastra A2A",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "mastraReply",
+              "value": "={{ $json[\"body\"][\"result\"]?.[\"messages\"]?.[0]?.[\"parts\"]?.[0]?.[\"text\"] || $json[\"body\"][\"result\"]?.[\"text\"] || JSON.stringify($json[\"body\"]) }}"
+            },
+            {
+              "name": "originalMessageId",
+              "value": "={{ $json[\"body\"][\"result\"]?.[\"messages\"]?.[0]?.[\"messageId\"] || $json[\"triggerMessageId\"] || $json[\"body\"]?.[\"message\"]?.[\"id\"] || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3",
+      "name": "Extract Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Telex Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Mastra A2A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Mastra A2A": {
+      "main": [
+        [
+          {
+            "node": "Extract Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Reply": {
+      "main": [
+        [
+          {
+            "node": "Post Reply to Telex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
